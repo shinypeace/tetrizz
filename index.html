@@ -90,7 +90,9 @@
             border-radius: 0;
             box-shadow: 0 8px 24px var(--shadow-color), 0 0 0 5px var(--border-color) inset;
             border: 2px solid var(--text-primary);
-            transition: background-color 0.3s, border-color 0.3s;
+            transition: background-color 0.3s, border-color 0.3s, transform 0.2s;
+            /* FIX: Центрирование для масштабирования */
+            transform-origin: center center;
         }
 
         #main-content {
@@ -332,18 +334,7 @@
         /* ========================================
         Адаптивность
         ======================================== */
-        @media (max-width: 450px) {
-            #game-container {
-                flex-direction: column-reverse;
-                padding: 10px;
-            }
-            #info-panel {
-                width: 100%;
-                flex-direction: row;
-                flex-wrap: wrap;
-                justify-content: space-around;
-            }
-        }
+        /* FIX: Удалена старая логика адаптивности, теперь используется масштабирование через JS */
         .hidden { display: none !important; }
     </style>
 </head>
@@ -467,7 +458,6 @@
                 await vkBridge.send('VKWebAppInit');
                 isVK = true;
                 console.log('VK Bridge initialized');
-                // Показываем баннер сразу после инициализации
                 vkBridge.send("VKWebAppShowBannerAd", { banner_location: 'bottom' })
                     .catch(e => console.error("Banner Ad Init Error:", e));
             } catch (error) {
@@ -725,7 +715,6 @@
                 elements.gameOverMenu.classList.add('visible');
                 stats.save(this.gameMode, this.score, this.lines, this.time);
 
-                // Показываем межстраничную рекламу
                 if(isVK) {
                     vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
                             .catch(e => console.error("Interstitial Ad Error:", e));
@@ -960,7 +949,6 @@
 
                 this.data = loadedData ? JSON.parse(loadedData) : defaultStats;
 
-                // Убедимся, что все режимы есть в статистике
                 for (const mode in defaultStats) {
                     if (!this.data[mode]) {
                         this.data[mode] = defaultStats[mode];
@@ -1025,6 +1013,27 @@
             }
         };
         
+        // FIX: Функция для масштабирования игрового контейнера
+        function resizeGame() {
+            const gameContainer = document.getElementById('game-container');
+            if (!gameContainer || !gameContainer.offsetParent) return;
+
+            const baseWidth = 400;  // Базовая ширина контейнера
+            const baseHeight = 630; // Базовая высота контейнера
+
+            const scaleX = window.innerWidth / baseWidth;
+            const scaleY = window.innerHeight / baseHeight;
+
+            let scale = Math.min(scaleX, scaleY);
+            
+            // Не увеличиваем, если экран больше базового размера
+            if (scale > 1) {
+                scale = 1;
+            }
+
+            gameContainer.style.transform = 'scale(' + scale + ')';
+        }
+
         async function initApp() {
             await initVK();
             theme.init();
@@ -1061,6 +1070,10 @@
             };
             elements.mainMenuBtn.addEventListener('click', toMainMenu);
             elements.mainMenuGameOverBtn.addEventListener('click', toMainMenu);
+
+            // FIX: Добавляем слушатель изменения размера окна и вызываем функцию
+            window.addEventListener('resize', resizeGame);
+            resizeGame();
         }
         initApp();
     })();
