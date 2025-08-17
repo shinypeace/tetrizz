@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Тетрис: Полное издание</title>
+    <!-- VK Bridge -->
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* ========================================
+        Темизация и Основные Стили
+        ======================================== */
+        :root {
+            --bg-main: #eef1f5;
+            --bg-game-container: #ffffff;
+            --bg-canvas: #e1e4e8;
+            --bg-menu: rgba(255, 255, 255, 0.9);
+            --text-primary: #24292e;
+            --text-secondary: #586069;
+            --text-accent: #0366d6;
+            --border-color: #d1d5da;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --btn-bg: #2ea44f;
+            --btn-hover-bg: #2c974b;
+            --btn-text: #ffffff;
+            --control-bg: #f6f8fa;
+            --control-active-bg: #e1e4e8;
+            --grid-color: rgba(0, 0, 0, 0.05);
+            --ghost-color: rgba(0, 0, 0, 0.15);
+        }
+
+        html[data-theme='dark'] {
+            --bg-main: #0d1117;
+            --bg-game-container: #161b22;
+            --bg-canvas: #010409;
+            --bg-menu: rgba(1, 4, 9, 0.9);
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --text-accent: #58a6ff;
+            --border-color: #30363d;
+            --shadow-color: rgba(0, 0, 0, 0.4);
+            --btn-bg: #238636;
+            --btn-hover-bg: #2ea043;
+            --btn-text: #ffffff;
+            --control-bg: #21262d;
+            --control-active-bg: #30363d;
+            --grid-color: rgba(255, 255, 255, 0.08);
+            --ghost-color: rgba(255, 255, 255, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Press Start 2P', cursive;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ========================================
+        Структура Игры
+        ======================================== */
+        #game-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        #game-container {
+            display: flex;
+            gap: 15px;
+            background-color: var(--bg-game-container);
+            padding: 20px;
+            border-radius: 0;
+            box-shadow: 0 8px 24px var(--shadow-color), 0 0 0 5px var(--border-color) inset;
+            border: 2px solid var(--text-primary);
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        #main-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #canvas {
+            width: 204px;
+            height: 444px;
+            background-color: var(--bg-canvas);
+            position: relative;
+            color: var(--text-accent);
+            border-radius: 0;
+            border: 2px solid var(--border-color);
+            margin-bottom: 15px;
+            transition: background-color 0.3s, border-color 0.3s;
+            background-image: 
+                linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: hidden;
+        }
+
+        #canvas h1 {
+            margin: 0;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.5;
+            padding: 20px;
+            padding-top: 150px;
+        }
+
+        /* ========================================
+        Информационная Панель
+        ======================================== */
+        #info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 140px;
+            text-align: center;
+        }
+
+        .info-box {
+            background: var(--bg-canvas);
+            border: 2px solid var(--border-color);
+            border-radius: 0;
+            padding: 10px 5px;
+        }
+        .info-box p {
+            margin: 0;
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        .info-box span {
+            display: block;
+            font-size: 16px;
+            color: var(--text-primary);
+            margin-top: 5px;
+        }
+
+        #next_shape {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto;
+        }
+        
+        /* ========================================
+        Фигуры и Эффекты
+        ======================================== */
+        .square {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            box-sizing: border-box;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4);
+            transition: opacity 0.2s, transform 0.2s, top 0.1s linear, left 0.1s linear;
+        }
+        .square.ghost {
+            background-color: var(--ghost-color) !important;
+            box-shadow: inset 0 0 0 1px var(--text-secondary);
+        }
+        .square.line-clear {
+            animation: flash 0.3s ease-out;
+        }
+        @keyframes flash {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0; transform: scale(0.5); }
+        }
+
+        .type0 { background-color: #a000f0; } /* T */
+        .type1 { background-color: #00f0f0; } /* I */
+        .type2 { background-color: #f0a000; } /* L */
+        .type3 { background-color: #0000f0; } /* J */
+        .type4 { background-color: #00f000; } /* S */
+        .type5 { background-color: #f00000; } /* Z */
+        .type6 { background-color: #f0f000; } /* O */
+
+        /* ========================================
+        Модальные Окна (Меню)
+        ======================================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-menu);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+
+        .modal-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+            text-align: center;
+            padding: 30px;
+            background: var(--bg-game-container);
+            border: 2px solid var(--text-primary);
+            box-shadow: 0 8px 24px var(--shadow-color), 0 0 0 5px var(--border-color) inset;
+            border-radius: 0;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-content h1 {
+            font-size: 1.8em;
+            margin: 0 0 15px 0;
+            color: var(--text-accent);
+            text-transform: uppercase;
+        }
+
+        .btn {
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 2px solid var(--text-primary);
+            box-shadow: inset 0 0 0 3px var(--bg-game-container);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            transition: background-color 0.2s, transform 0.1s;
+            width: 220px;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+        .btn:hover { background-color: var(--btn-hover-bg); }
+        .btn:active { transform: translateY(2px); }
+
+        .rules-content, .stats-content {
+            font-size: 10px;
+            text-align: left;
+            line-height: 1.8;
+            width: 100%;
+            max-width: 300px;
+        }
+        .rules-content h3 {
+            color: var(--text-accent);
+            font-size: 12px;
+            margin: 15px 0 5px 0;
+        }
+
+        .stat-category {
+            margin-bottom: 15px;
+        }
+        .stat-category h3 {
+            color: var(--text-accent);
+            font-size: 12px;
+            margin: 0 0 10px 0;
+            text-align: center;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        .stat-item span:last-child {
+            color: var(--text-primary);
+            font-weight: bold;
+        }
+
+        /* ========================================
+        Переключатель Темы
+        ======================================== */
+        .theme-switcher { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+        .theme-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .4s; border-radius: 26px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--text-accent); }
+        input:checked + .slider:before { transform: translateX(24px); }
+
+        /* ========================================
+        Мобильное Управление
+        ======================================== */
+        #mobile-controls {
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left down right";
+            gap: 10px;
+            width: 200px;
+        }
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            border-radius: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--control-bg);
+            color: var(--text-secondary);
+            border: 2px solid var(--border-color);
+            cursor: pointer;
+            box-shadow: 0 4px 0 var(--border-color);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .control-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 var(--border-color);
+        }
+        #rotate-btn { grid-area: up; }
+        #left-btn { grid-area: left; }
+        #down-btn { grid-area: down; }
+        #right-btn { grid-area: right; }
+
+        /* ========================================
+        Адаптивность
+        ======================================== */
+        @media (max-width: 450px) {
+            #game-container {
+                flex-direction: column-reverse;
+                padding: 10px;
+            }
+            #info-panel {
+                width: 100%;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: space-around;
+            }
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <div id="main-menu" class="modal-overlay visible">
+        <div class="modal-content">
+            <h1>Тетрис</h1>
+            <button class="btn" data-mode="classic">Классика</button>
+            <button class="btn" data-mode="speedrun">Скоростной</button>
+            <button class="btn" data-mode="ghost">Призрак</button>
+            <button id="rules-btn" class="btn" style="margin-top: 10px;">Правила</button>
+            <button id="stats-btn" class="btn">Статистика</button>
+            <div class="theme-switcher">
+                <span>☀️</span>
+                <label class="theme-switch"><input type="checkbox" id="theme-toggle"><span class="slider"></span></label>
+                <span>🌙</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="rules-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h1>Правила</h1>
+            <div class="rules-content">
+                <h3>Классика</h3>
+                <p>Собирайте линии, чтобы набрать очки. Каждые 10 линий увеличивают уровень и скорость игры.</p>
+                <h3>Скоростной</h3>
+                <p>Цель - как можно быстрее очистить 40 линий. Скорость растет с каждой линией. Результат - ваше время.</p>
+                <h3>Призрак</h3>
+                <p>Вы видите "призрак" фигуры в месте ее падения. Это помогает планировать ходы. Сложность - внизу.</p>
+            </div>
+            <button id="close-rules-btn" class="btn">Понятно</button>
+        </div>
+    </div>
+
+    <div id="game-over-menu" class="modal-overlay">
+        <div class="modal-content">
+            <h1 id="game-over-title">Конец Игры</h1>
+            <button id="restart-gameover-btn" class="btn">Заново</button>
+            <button id="main-menu-gameover-btn" class="btn">В меню</button>
+        </div>
+    </div>
+
+    <div id="pause-menu" class="modal-overlay">
+        <div class="modal-content">
+            <h1>Пауза</h1>
+            <button id="resume-btn" class="btn">Продолжить</button>
+            <button id="restart-btn" class="btn">Заново</button>
+            <button id="main-menu-btn" class="btn">В меню</button>
+        </div>
+    </div>
+
+    <div id="stats-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h1>Статистика</h1>
+            <div id="stats-grid" class="stats-content"></div>
+            <button id="close-stats-btn" class="btn">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="game-wrapper" class="hidden">
+        <div id="game-container">
+            <div id="info-panel">
+                <div class="info-box"><p>Счет</p><span id="score-val">0</span></div>
+                <div class="info-box"><p>Уровень</p><span id="level-val">1</span></div>
+                <div class="info-box"><p>Линии</p><span id="lines-val">0</span></div>
+                <div class="info-box"><p>Время</p><span id="time-val">00:00</span></div>
+                <div class="info-box"><p>Далее</p><div id="next_shape"></div></div>
+                <button id="pause-btn" class="btn" style="width: 100%; font-size: 10px; padding: 8px;">Пауза</button>
+            </div>
+            <div id="main-content">
+                <div id="canvas"></div>
+                <div id="mobile-controls">
+                    <button id="rotate-btn" class="control-btn">↻</button>
+                    <button id="left-btn" class="control-btn">←</button>
+                    <button id="down-btn" class="control-btn">↓</button>
+                    <button id="right-btn" class="control-btn">→</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        const elements = {
+            mainMenu: document.getElementById('main-menu'),
+            pauseMenu: document.getElementById('pause-menu'),
+            gameOverMenu: document.getElementById('game-over-menu'),
+            statsModal: document.getElementById('stats-modal'),
+            rulesModal: document.getElementById('rules-modal'),
+            gameWrapper: document.getElementById('game-wrapper'),
+            themeToggle: document.getElementById('theme-toggle'),
+            statsBtn: document.getElementById('stats-btn'),
+            rulesBtn: document.getElementById('rules-btn'),
+            closeStatsBtn: document.getElementById('close-stats-btn'),
+            closeRulesBtn: document.getElementById('close-rules-btn'),
+            resumeBtn: document.getElementById('resume-btn'),
+            restartBtn: document.getElementById('restart-btn'),
+            mainMenuBtn: document.getElementById('main-menu-btn'),
+            pauseBtn: document.getElementById('pause-btn'),
+            restartGameOverBtn: document.getElementById('restart-gameover-btn'),
+            mainMenuGameOverBtn: document.getElementById('main-menu-gameover-btn'),
+            gameOverTitle: document.getElementById('game-over-title'),
+            canvas: document.getElementById('canvas'),
+            nextShapeDisplay: document.getElementById("next_shape"),
+            displays: {
+                score: document.getElementById("score-val"),
+                level: document.getElementById("level-val"),
+                lines: document.getElementById("lines-val"),
+                time: document.getElementById("time-val"),
+            }
+        };
+
+        // --- VK Integration ---
+        let isVK = false;
+        const STATS_VK_KEY = 'tetrisGameStats_v1';
+
+        async function initVK() {
+            try {
+                await vkBridge.send('VKWebAppInit');
+                isVK = true;
+                console.log('VK Bridge initialized');
+                // Показываем баннер сразу после инициализации
+                vkBridge.send("VKWebAppShowBannerAd", { banner_location: 'bottom' })
+                    .catch(e => console.error("Banner Ad Init Error:", e));
+            } catch (error) {
+                console.error('VK Bridge init failed:', error);
+                isVK = false;
+            }
+        }
+        
+        const tetris = {
+            // --- Состояние игры ---
+            board: [],
+            sqs: [], 
+            curSqs: [],
+            ghostSqs: [],
+            tempShapes: null,
+            curShape: null,
+            curShapeIndex: null,
+            curX: 0,
+            curY: 0,
+            score: 0,
+            level: 1,
+            lines: 0,
+            time: 0,
+            speed: 700,
+            gameMode: 'classic',
+            
+            // --- Флаги состояния ---
+            isActive: false,
+            isPaused: false,
+            isGameOver: false,
+            
+            // --- Таймеры ---
+            gameLoopTimeout: null,
+            timeCounterInterval: null,
+            
+            // --- Константы ---
+            pSize: 20,
+            boardHeight: 22,
+            boardWidth: 10,
+            spawnX: 4,
+            spawnY: 0,
+            shapes: [
+                [[0,0],[-1,0],[1,0],[0,-1]], // T
+                [[0,0],[-1,0],[1,0],[2,0]], // I
+                [[0,0],[-1,0],[1,0],[-1,-1]],// L
+                [[0,0],[-1,0],[1,0],[1,-1]], // J
+                [[0,0],[1,0],[0,-1],[-1,-1]],// S
+                [[0,0],[-1,0],[0,-1],[1,-1]],// Z
+                [[0,0],[0,1],[1,0],[1,1]] // O
+            ],
+            
+            init: function (mode) {
+                this.gameMode = mode;
+                this.cleanup();
+                this.resetState();
+                
+                this.initBoard();
+                this.updateInfo();
+                this.initShapes();
+                this.bindEvents();
+                this.play();
+            },
+
+            cleanup: function() {
+                this.clearTimers();
+                this.unbindEvents();
+                elements.canvas.innerHTML = '';
+            },
+
+            resetState: function() {
+                this.board = []; this.sqs = []; this.curSqs = [];
+                this.tempShapes = null;
+                this.score = 0; this.level = 1; this.lines = 0; this.time = 0; this.speed = 700;
+                this.isActive = true; this.isPaused = false; this.isGameOver = false;
+
+                if (this.gameMode === 'speedrun') {
+                    elements.canvas.innerHTML = `<h1>Очистите 40 линий!</h1>`;
+                    setTimeout(() => { if (!this.isGameOver) elements.canvas.innerHTML = ''; }, 2000);
+                }
+            },
+
+            initBoard: function () {
+                this.board = Array(this.boardHeight).fill(0).map(() => Array(this.boardWidth).fill(null));
+            },
+            
+            updateInfo: function() {
+                elements.displays.score.textContent = this.score;
+                elements.displays.level.textContent = this.level;
+                elements.displays.lines.textContent = this.lines;
+                elements.displays.time.textContent = this.formatTime(this.time);
+            },
+            
+            formatTime: function(seconds) {
+                const min = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const sec = (seconds % 60).toString().padStart(2, '0');
+                return `${min}:${sec}`;
+            },
+
+            initShapes: function () {
+                if (!this.tempShapes || this.tempShapes.length <= 1) this.initTempShapes();
+                else this.tempShapes.shift();
+                
+                this.curShapeIndex = this.tempShapes[0];
+                this.curShape = JSON.parse(JSON.stringify(this.shapes[this.curShapeIndex]));
+                this.initNextShape();
+
+                let minY = 0;
+                this.curShape.forEach(([, y]) => {
+                    if (y < minY) minY = y;
+                });
+
+                this.setCurCoords(this.spawnX, -minY);
+
+                if (this.checkMove(this.curX, this.curY, this.curShape)) {
+                    this.drawShape();
+                } else {
+                    this.gameOver();
+                }
+            },
+            initNextShape: function () {
+                if (this.tempShapes.length <=1) this.initTempShapes();
+                this.nextShapeIndex = this.tempShapes[1];
+                this.drawNextShape();
+            },
+            initTempShapes: function () {
+                this.tempShapes = Array.from({length: this.shapes.length}, (_, i) => i);
+                for (let i = this.tempShapes.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.tempShapes[i], this.tempShapes[j]] = [this.tempShapes[j], this.tempShapes[i]];
+                }
+            },
+            
+            drawNextShape: function () {
+                elements.nextShapeDisplay.innerHTML = "";
+                const shape = this.shapes[this.nextShapeIndex];
+                let minX = 0, maxX = 0, minY = 0, maxY = 0;
+                shape.forEach(([x, y]) => {
+                    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                });
+                const width = (maxX - minX + 1) * this.pSize;
+                const height = (maxY - minY + 1) * this.pSize;
+                const offsetX = (100 - width) / 2; const offsetY = (100 - height) / 2;
+
+                shape.forEach(point => {
+                    const sq = this.createSquare(
+                        (point[0] - minX) * this.pSize + offsetX, 
+                        (point[1] - minY) * this.pSize + offsetY, 
+                        this.nextShapeIndex
+                    );
+                    elements.nextShapeDisplay.appendChild(sq);
+                });
+            },
+            drawShape: function () {
+                this.removeSqs(this.curSqs);
+                this.curSqs = [];
+                this.curShape.forEach(point => {
+                    const sqX = (point[0] + this.curX) * this.pSize;
+                    const sqY = (point[1] + this.curY) * this.pSize;
+                    this.curSqs.push(this.createSquare(sqX, sqY, this.curShapeIndex));
+                });
+                this.curSqs.forEach(sq => elements.canvas.appendChild(sq));
+                if (this.gameMode === 'ghost') this.drawGhostShape();
+            },
+            drawGhostShape: function() {
+                this.removeSqs(this.ghostSqs);
+                this.ghostSqs = [];
+                let ghostY = this.curY;
+                while(this.checkMove(this.curX, ghostY + 1, this.curShape)) {
+                    ghostY++;
+                }
+
+                this.curShape.forEach(point => {
+                    const sqX = (point[0] + this.curX) * this.pSize;
+                    const sqY = (point[1] + ghostY) * this.pSize;
+                    const ghostSq = this.createSquare(sqX, sqY, this.curShapeIndex);
+                    ghostSq.classList.add('ghost');
+                    this.ghostSqs.push(ghostSq);
+                });
+                this.ghostSqs.forEach(sq => elements.canvas.appendChild(sq));
+            },
+            createSquare: function (x, y, type) {
+                const el = document.createElement("div");
+                el.className = "square type" + type;
+                el.style.left = x + "px"; el.style.top = y + "px";
+                return el;
+            },
+            removeSqs: function (sqsArray) {
+                sqsArray.forEach(sq => sq.parentElement?.removeChild(sq));
+            },
+            setCurCoords: function (x, y) { this.curX = x; this.curY = y; },
+
+            eventHandlers: {},
+            bindEvents: function () {
+                this.eventHandlers.keyDown = this.handleKey.bind(this);
+                document.addEventListener("keydown", this.eventHandlers.keyDown);
+
+                const controls = { 'left-btn': 'L', 'right-btn': 'R', 'down-btn': 'D', 'rotate-btn': 'RT' };
+                this.eventHandlers.mobile = [];
+                for (const [id, move] of Object.entries(controls)) {
+                    const btn = document.getElementById(id);
+                    let interval;
+                    const startMove = (e) => {
+                        e.preventDefault();
+                        if (interval || this.isPaused || this.isGameOver) return;
+                        this.move(move);
+                        interval = setInterval(() => this.move(move), 120);
+                    };
+                    const endMove = () => { clearInterval(interval); interval = null; };
+                    
+                    btn.addEventListener('mousedown', startMove);
+                    btn.addEventListener('touchstart', startMove, { passive: false });
+                    btn.addEventListener('mouseup', endMove);
+                    btn.addEventListener('mouseleave', endMove);
+                    btn.addEventListener('touchend', endMove);
+
+                    this.eventHandlers.mobile.push({btn, startMove, endMove});
+                }
+            },
+            unbindEvents: function() {
+                if (this.eventHandlers.keyDown) {
+                    document.removeEventListener('keydown', this.eventHandlers.keyDown);
+                    this.eventHandlers.keyDown = null;
+                }
+                if (this.eventHandlers.mobile) {
+                    this.eventHandlers.mobile.forEach(({btn, startMove, endMove}) => {
+                        btn.removeEventListener('mousedown', startMove);
+                        btn.removeEventListener('touchstart', startMove);
+                        btn.removeEventListener('mouseup', endMove);
+                        btn.removeEventListener('mouseleave', endMove);
+                        btn.removeEventListener('touchend', endMove);
+                    });
+                    this.eventHandlers.mobile = [];
+                }
+            },
+            handleKey: function (e) {
+                if (!this.isActive || this.isGameOver) return;
+                if (e.keyCode === 27 || e.keyCode === 80) { e.preventDefault(); this.togglePause(); return; }
+                if(this.isPaused) return;
+                switch (e.keyCode) {
+                    case 37: this.move("L"); break; case 38: this.move("RT"); break;
+                    case 39: this.move("R"); break; case 40: this.move("D"); break;
+                }
+            },
+
+            gameOver: function () {
+                this.clearTimers();
+                this.isActive = false; this.isGameOver = true;
+                
+                let title = "Конец Игры";
+                if (this.gameMode === 'speedrun') {
+                    title = this.lines >= 40 ? `Время: ${this.formatTime(this.time)}` : "Попытка не удалась";
+                }
+                elements.gameOverTitle.textContent = title;
+                elements.gameOverMenu.classList.add('visible');
+                stats.save(this.gameMode, this.score, this.lines, this.time);
+
+                // Показываем межстраничную рекламу
+                if(isVK) {
+                    vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
+                            .catch(e => console.error("Interstitial Ad Error:", e));
+                }
+            },
+            play: function () {
+                if (this.isGameOver) return;
+                this.isActive = true; this.isPaused = false;
+                this.startGameLoop();
+                this.startTimeCounter();
+            },
+            togglePause: function () {
+                if (this.isGameOver) return;
+                this.isPaused = !this.isPaused;
+                if (this.isPaused) {
+                    this.clearTimers();
+                    elements.pauseMenu.classList.add('visible');
+                } else {
+                    elements.pauseMenu.classList.remove('visible');
+                    this.play();
+                }
+            },
+            startGameLoop: function() {
+                this.gameLoopTimeout = setTimeout(() => this.gameLoop(), this.speed);
+            },
+            startTimeCounter: function() {
+                this.timeCounterInterval = setInterval(() => {
+                    this.time++;
+                    this.updateInfo();
+                }, 1000);
+            },
+            clearTimers: function () {
+                clearTimeout(this.gameLoopTimeout);
+                clearInterval(this.timeCounterInterval);
+                this.gameLoopTimeout = null;
+                this.timeCounterInterval = null;
+            },
+            
+            gameLoop: function() {
+                if (this.isPaused || !this.isActive) return;
+                
+                let clearedRows = [];
+
+                if (this.checkMove(this.curX, this.curY + 1, this.curShape)) {
+                    this.curY++;
+                    this.drawShape();
+                } else {
+                    if (this.curY < 0) {
+                        this.gameOver();
+                        return;
+                    }
+                    this.placeShape();
+                    clearedRows = this.checkRows();
+                    if (clearedRows.length === 0) {
+                        this.calcScore({ shape: true });
+                        this.checkLevelUp();
+                        if(this.isGameOver) return;
+                        this.initShapes();
+                    }
+                }
+
+                if (!this.isGameOver && clearedRows.length === 0) {
+                    this.startGameLoop();
+                }
+            },
+
+            move: function (dir) {
+                if (this.isPaused || this.isGameOver) return;
+                let tempX = this.curX, tempY = this.curY;
+                
+                if (dir === "RT") { this.rotate(); return; }
+                
+                switch (dir) {
+                    case "L": tempX--; break;
+                    case "R": tempX++; break;
+                    case "D": tempY++; break;
+                }
+
+                if (this.checkMove(tempX, tempY, this.curShape)) {
+                    this.setCurCoords(tempX, tempY);
+                    this.drawShape();
+                    if (dir === 'D') {
+                        clearTimeout(this.gameLoopTimeout);
+                        this.startGameLoop();
+                    }
+                }
+            },
+            rotate: function () {
+                if (this.curShapeIndex === 6) return;
+                const tempShape = this.curShape.map(([x, y]) => [-y, x]);
+                const kicks = [0, 1, -1, 2, -2];
+                for (const kick of kicks) {
+                    if (this.checkMove(this.curX + kick, this.curY, tempShape)) {
+                        this.curX += kick;
+                        this.curShape = tempShape;
+                        this.drawShape();
+                        return;
+                    }
+                }
+            },
+            checkMove: (x, y, p) => !tetris.isOB(x, y, p) && !tetris.isCollision(x, y, p),
+            isCollision: function (x, y, p) {
+                return p.some(([px, py]) => {
+                    const newX = px + x, newY = py + y;
+                    return newY >= 0 && this.board[newY]?.[newX] !== null;
+                });
+            },
+            isOB: function (x, y, p) {
+                return p.some(([px, py]) => {
+                    const newX = px + x, newY = py + y;
+                    return newX < 0 || newX >= this.boardWidth || newY >= this.boardHeight;
+                });
+            },
+            
+            placeShape: function() {
+                this.markBoardShape(this.curX, this.curY, this.curShape);
+                this.removeSqs(this.curSqs);
+                this.removeSqs(this.ghostSqs);
+                this.redrawAllBlocks();
+            },
+            markBoardShape: function (x, y, p) {
+                p.forEach(([px, py]) => {
+                    const boardY = py + y;
+                    const boardX = px + x;
+                    if (boardY >= 0) {
+                        this.board[boardY][boardX] = this.curShapeIndex;
+                    }
+                });
+            },
+            checkRows: function () {
+                let clearedRows = [];
+                for (let y = this.boardHeight - 1; y >= 0; y--) {
+                    if (this.isRowFull(y)) clearedRows.push(y);
+                }
+                if (clearedRows.length > 0) {
+                    this.animateAndRemoveRows(clearedRows);
+                }
+                return clearedRows;
+            },
+            isRowFull: function(y) {
+                return this.board[y].every(cell => cell !== null);
+            },
+            animateAndRemoveRows: function(rows) {
+                rows.forEach(y => {
+                    for (let x = 0; x < this.boardWidth; x++) {
+                        const sqToRemove = this.sqs.find(sq => {
+                            const [sqX, sqY] = this.getPos(sq);
+                            return sqX === x && sqY === y;
+                        });
+                        sqToRemove?.classList.add('line-clear');
+                    }
+                });
+                
+                setTimeout(() => {
+                    this.removeRows(rows);
+                    this.calcScore({ lines: rows.length });
+                    this.checkLevelUp();
+                    if (this.gameMode === 'speedrun' && this.lines >= 40) {
+                        this.gameOver();
+                    }
+                    if (!this.isGameOver) {
+                        this.initShapes();
+                        this.startGameLoop();
+                    }
+                }, 300);
+            },
+            removeRows: function(rowsToRemove) {
+                rowsToRemove.sort((a, b) => a - b).forEach(y => {
+                    this.board.splice(y, 1);
+                    this.board.unshift(Array(this.boardWidth).fill(null));
+                });
+                this.redrawAllBlocks();
+            },
+            redrawAllBlocks: function() {
+                this.removeSqs(this.sqs);
+                this.sqs = [];
+                for (let y = 0; y < this.boardHeight; y++) {
+                    for (let x = 0; x < this.boardWidth; x++) {
+                        if (this.board[y][x] !== null) {
+                            const type = this.board[y][x];
+                            const sq = this.createSquare(x * this.pSize, y * this.pSize, type);
+                            elements.canvas.appendChild(sq);
+                            this.sqs.push(sq);
+                        }
+                    }
+                }
+            },
+            getPos: (block) => [Math.round(parseInt(block.style.left)/tetris.pSize), Math.round(parseInt(block.style.top)/tetris.pSize)],
+
+            calcScore: function (args) {
+                const lines = args.lines || 0;
+                if (lines > 0) {
+                    const lineScores = [0, 40, 100, 300, 1200];
+                    this.score += lineScores[lines] * this.level;
+                    this.lines += lines;
+                }
+                if (args.shape) this.score += 10;
+                this.updateInfo();
+            },
+            checkLevelUp: function () {
+                if (this.gameMode === 'classic' && this.lines >= this.level * 10) {
+                   this.level++;
+                   this.speed = Math.max(100, this.speed - 60);
+                } else if (this.gameMode === 'speedrun') {
+                    this.speed = Math.max(50, 700 - this.lines * 15);
+                }
+                this.updateInfo();
+            },
+        };
+
+        const stats = {
+            data: {},
+            async load() {
+                let loadedData = null;
+                if (isVK) {
+                    try {
+                        const data = await vkBridge.send('VKWebAppStorageGet', { keys: [STATS_VK_KEY] });
+                        if (data.keys[0].value) {
+                            loadedData = data.keys[0].value;
+                        }
+                    } catch (e) { console.error('VK Storage load failed:', e); }
+                }
+                if (!loadedData) {
+                    loadedData = localStorage.getItem(STATS_VK_KEY);
+                }
+                
+                const defaultStats = {
+                    classic: { highScore: 0, totalLines: 0, timePlayed: 0 },
+                    speedrun: { bestTime: Infinity, gamesWon: 0, timePlayed: 0 },
+                    ghost: { highScore: 0, totalLines: 0, timePlayed: 0 }
+                };
+
+                this.data = loadedData ? JSON.parse(loadedData) : defaultStats;
+
+                // Убедимся, что все режимы есть в статистике
+                for (const mode in defaultStats) {
+                    if (!this.data[mode]) {
+                        this.data[mode] = defaultStats[mode];
+                    }
+                }
+            },
+            async save(mode, score, lines, time) {
+                if (!this.data[mode]) return;
+                this.data[mode].timePlayed += time;
+                if (mode === 'classic' || mode === 'ghost') {
+                    this.data[mode].highScore = Math.max(this.data[mode].highScore, score);
+                    this.data[mode].totalLines += lines;
+                } else if (mode === 'speedrun' && lines >= 40) {
+                    this.data[mode].bestTime = Math.min(this.data[mode].bestTime, time);
+                    this.data[mode].gamesWon++;
+                }
+                
+                const dataString = JSON.stringify(this.data);
+                localStorage.setItem(STATS_VK_KEY, dataString);
+                if (isVK) {
+                    try {
+                        await vkBridge.send('VKWebAppStorageSet', { key: STATS_VK_KEY, value: dataString });
+                    } catch (e) { console.error('VK Storage save failed:', e); }
+                }
+            },
+            display: function() {
+                const grid = document.getElementById('stats-grid');
+                grid.innerHTML = `
+                    <div class="stat-category">
+                        <h3>Классика</h3>
+                        <div class="stat-item"><span>Рекорд:</span> <span>${this.data.classic.highScore}</span></div>
+                        <div class="stat-item"><span>Линии:</span> <span>${this.data.classic.totalLines}</span></div>
+                        <div class="stat-item"><span>Время:</span> <span>${tetris.formatTime(this.data.classic.timePlayed)}</span></div>
+                    </div>
+                    <div class="stat-category">
+                        <h3>Скоростной</h3>
+                        <div class="stat-item"><span>Лучшее время:</span> <span>${this.data.speedrun.bestTime === Infinity ? 'N/A' : tetris.formatTime(this.data.speedrun.bestTime)}</span></div>
+                        <div class="stat-item"><span>Побед:</span> <span>${this.data.speedrun.gamesWon}</span></div>
+                        <div class="stat-item"><span>Время:</span> <span>${tetris.formatTime(this.data.speedrun.timePlayed)}</span></div>
+                    </div>
+                    <div class="stat-category">
+                        <h3>Призрак</h3>
+                        <div class="stat-item"><span>Рекорд:</span> <span>${this.data.ghost.highScore}</span></div>
+                        <div class="stat-item"><span>Линии:</span> <span>${this.data.ghost.totalLines}</span></div>
+                        <div class="stat-item"><span>Время:</span> <span>${tetris.formatTime(this.data.ghost.timePlayed)}</span></div>
+                    </div>`;
+                elements.statsModal.classList.add('visible');
+            }
+        };
+
+        const theme = {
+            init: function() {
+                const savedTheme = localStorage.getItem('theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                elements.themeToggle.checked = savedTheme === 'dark';
+                elements.themeToggle.addEventListener('change', this.toggle);
+            },
+            toggle: function() {
+                const newTheme = elements.themeToggle.checked ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+            }
+        };
+        
+        async function initApp() {
+            await initVK();
+            theme.init();
+            await stats.load();
+
+            elements.mainMenu.addEventListener('click', (e) => {
+                if (e.target.matches('.btn[data-mode]')) {
+                    elements.mainMenu.classList.remove('visible');
+                    elements.gameWrapper.classList.remove('hidden');
+                    tetris.init(e.target.dataset.mode);
+                }
+            });
+            elements.statsBtn.addEventListener('click', () => stats.display());
+            elements.rulesBtn.addEventListener('click', () => elements.rulesModal.classList.add('visible'));
+            elements.closeStatsBtn.addEventListener('click', () => elements.statsModal.classList.remove('visible'));
+            elements.closeRulesBtn.addEventListener('click', () => elements.rulesModal.classList.remove('visible'));
+            elements.pauseBtn.addEventListener('click', () => tetris.togglePause());
+            elements.resumeBtn.addEventListener('click', () => tetris.togglePause());
+            
+            const restart = () => {
+                elements.pauseMenu.classList.remove('visible');
+                elements.gameOverMenu.classList.remove('visible');
+                tetris.init(tetris.gameMode);
+            };
+            elements.restartBtn.addEventListener('click', restart);
+            elements.restartGameOverBtn.addEventListener('click', restart);
+
+            const toMainMenu = () => {
+                tetris.cleanup();
+                elements.pauseMenu.classList.remove('visible');
+                elements.gameOverMenu.classList.remove('visible');
+                elements.gameWrapper.classList.add('hidden');
+                elements.mainMenu.classList.add('visible');
+            };
+            elements.mainMenuBtn.addEventListener('click', toMainMenu);
+            elements.mainMenuGameOverBtn.addEventListener('click', toMainMenu);
+        }
+        initApp();
+    })();
+    </script>
+</body>
+</html>
