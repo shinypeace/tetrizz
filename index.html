@@ -83,16 +83,24 @@
         }
 
         #game-container {
+            /* FIX: Изменена структура для центрирования кнопок */
             display: flex;
-            gap: 15px;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
             background-color: var(--bg-game-container);
             padding: 20px;
             border-radius: 0;
             box-shadow: 0 8px 24px var(--shadow-color), 0 0 0 5px var(--border-color) inset;
             border: 2px solid var(--text-primary);
             transition: background-color 0.3s, border-color 0.3s, transform 0.2s;
-            /* FIX: Центрирование для масштабирования */
             transform-origin: center center;
+        }
+        
+        /* FIX: Новый контейнер для верхней части игры */
+        #game-top-area {
+            display: flex;
+            gap: 15px;
         }
 
         #main-content {
@@ -109,7 +117,8 @@
             color: var(--text-accent);
             border-radius: 0;
             border: 2px solid var(--border-color);
-            margin-bottom: 15px;
+            /* FIX: Убран нижний отступ */
+            margin-bottom: 0;
             transition: background-color 0.3s, border-color 0.3s;
             background-image: 
                 linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
@@ -331,10 +340,6 @@
         #down-btn { grid-area: down; }
         #right-btn { grid-area: right; }
 
-        /* ========================================
-        Адаптивность
-        ======================================== */
-        /* FIX: Удалена старая логика адаптивности, теперь используется масштабирование через JS */
         .hidden { display: none !important; }
     </style>
 </head>
@@ -397,23 +402,26 @@
     </div>
 
     <div id="game-wrapper" class="hidden">
+        <!-- FIX: Изменена структура HTML для нового макета -->
         <div id="game-container">
-            <div id="info-panel">
-                <div class="info-box"><p>Счет</p><span id="score-val">0</span></div>
-                <div class="info-box"><p>Уровень</p><span id="level-val">1</span></div>
-                <div class="info-box"><p>Линии</p><span id="lines-val">0</span></div>
-                <div class="info-box"><p>Время</p><span id="time-val">00:00</span></div>
-                <div class="info-box"><p>Далее</p><div id="next_shape"></div></div>
-                <button id="pause-btn" class="btn" style="width: 100%; font-size: 10px; padding: 8px;">Пауза</button>
-            </div>
-            <div id="main-content">
-                <div id="canvas"></div>
-                <div id="mobile-controls">
-                    <button id="rotate-btn" class="control-btn">↻</button>
-                    <button id="left-btn" class="control-btn">←</button>
-                    <button id="down-btn" class="control-btn">↓</button>
-                    <button id="right-btn" class="control-btn">→</button>
+            <div id="game-top-area">
+                <div id="info-panel">
+                    <div class="info-box"><p>Счет</p><span id="score-val">0</span></div>
+                    <div class="info-box"><p>Уровень</p><span id="level-val">1</span></div>
+                    <div class="info-box"><p>Линии</p><span id="lines-val">0</span></div>
+                    <div class="info-box"><p>Время</p><span id="time-val">00:00</span></div>
+                    <div class="info-box"><p>Далее</p><div id="next_shape"></div></div>
+                    <button id="pause-btn" class="btn" style="width: 100%; font-size: 10px; padding: 8px;">Пауза</button>
                 </div>
+                <div id="main-content">
+                    <div id="canvas"></div>
+                </div>
+            </div>
+            <div id="mobile-controls">
+                <button id="rotate-btn" class="control-btn">↻</button>
+                <button id="left-btn" class="control-btn">←</button>
+                <button id="down-btn" class="control-btn">↓</button>
+                <button id="right-btn" class="control-btn">→</button>
             </div>
         </div>
     </div>
@@ -451,7 +459,7 @@
 
         // --- VK Integration ---
         let isVK = false;
-        const STATS_VK_KEY = 'tetrisGameStats_v1';
+        const STATS_VK_KEY = 'tetrisGameStats_v2'; // FIX: Новая версия статистики
 
         async function initVK() {
             try {
@@ -483,6 +491,7 @@
             time: 0,
             speed: 700,
             gameMode: 'classic',
+            maxLinesClearedInTurn: 0, // FIX: Новая переменная для статистики
             
             // --- Флаги состояния ---
             isActive: false,
@@ -531,6 +540,7 @@
                 this.board = []; this.sqs = []; this.curSqs = [];
                 this.tempShapes = null;
                 this.score = 0; this.level = 1; this.lines = 0; this.time = 0; this.speed = 700;
+                this.maxLinesClearedInTurn = 0; // FIX: Сброс статистики
                 this.isActive = true; this.isPaused = false; this.isGameOver = false;
 
                 if (this.gameMode === 'speedrun') {
@@ -713,7 +723,7 @@
                 }
                 elements.gameOverTitle.textContent = title;
                 elements.gameOverMenu.classList.add('visible');
-                stats.save(this.gameMode, this.score, this.lines, this.time);
+                stats.save(this.gameMode, this.score, this.lines, this.time, this.maxLinesClearedInTurn);
 
                 if(isVK) {
                     vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
@@ -858,6 +868,9 @@
                 return this.board[y].every(cell => cell !== null);
             },
             animateAndRemoveRows: function(rows) {
+                // FIX: Обновление рекорда по линиям за ход
+                this.maxLinesClearedInTurn = Math.max(this.maxLinesClearedInTurn, rows.length);
+
                 rows.forEach(y => {
                     for (let x = 0; x < this.boardWidth; x++) {
                         const sqToRemove = this.sqs.find(sq => {
@@ -941,10 +954,11 @@
                     loadedData = localStorage.getItem(STATS_VK_KEY);
                 }
                 
+                // FIX: Новая структура статистики по умолчанию
                 const defaultStats = {
-                    classic: { highScore: 0, totalLines: 0, timePlayed: 0 },
-                    speedrun: { bestTime: Infinity, gamesWon: 0, timePlayed: 0 },
-                    ghost: { highScore: 0, totalLines: 0, timePlayed: 0 }
+                    classic: { highScore: 0, maxLinesInGame: 0 },
+                    speedrun: { bestTime: Infinity, gamesWon: 0 },
+                    ghost: { highScore: 0, maxLinesInGame: 0 }
                 };
 
                 this.data = loadedData ? JSON.parse(loadedData) : defaultStats;
@@ -955,12 +969,13 @@
                     }
                 }
             },
-            async save(mode, score, lines, time) {
+            // FIX: Обновлена функция сохранения
+            async save(mode, score, lines, time, maxLinesCleared) {
                 if (!this.data[mode]) return;
-                this.data[mode].timePlayed += time;
+                
                 if (mode === 'classic' || mode === 'ghost') {
                     this.data[mode].highScore = Math.max(this.data[mode].highScore, score);
-                    this.data[mode].totalLines += lines;
+                    this.data[mode].maxLinesInGame = Math.max(this.data[mode].maxLinesInGame, maxLinesCleared);
                 } else if (mode === 'speedrun' && lines >= 40) {
                     this.data[mode].bestTime = Math.min(this.data[mode].bestTime, time);
                     this.data[mode].gamesWon++;
@@ -974,26 +989,24 @@
                     } catch (e) { console.error('VK Storage save failed:', e); }
                 }
             },
+            // FIX: Обновлена функция отображения
             display: function() {
                 const grid = document.getElementById('stats-grid');
                 grid.innerHTML = `
                     <div class="stat-category">
                         <h3>Классика</h3>
                         <div class="stat-item"><span>Рекорд:</span> <span>${this.data.classic.highScore}</span></div>
-                        <div class="stat-item"><span>Линии:</span> <span>${this.data.classic.totalLines}</span></div>
-                        <div class="stat-item"><span>Время:</span> <span>${tetris.formatTime(this.data.classic.timePlayed)}</span></div>
+                        <div class="stat-item"><span>Рекорд линий:</span> <span>${this.data.classic.maxLinesInGame}</span></div>
                     </div>
                     <div class="stat-category">
                         <h3>Скоростной</h3>
                         <div class="stat-item"><span>Лучшее время:</span> <span>${this.data.speedrun.bestTime === Infinity ? 'N/A' : tetris.formatTime(this.data.speedrun.bestTime)}</span></div>
                         <div class="stat-item"><span>Побед:</span> <span>${this.data.speedrun.gamesWon}</span></div>
-                        <div class="stat-item"><span>Время:</span> <span>${tetris.formatTime(this.data.speedrun.timePlayed)}</span></div>
                     </div>
                     <div class="stat-category">
                         <h3>Призрак</h3>
                         <div class="stat-item"><span>Рекорд:</span> <span>${this.data.ghost.highScore}</span></div>
-                        <div class="stat-item"><span>Линии:</span> <span>${this.data.ghost.totalLines}</span></div>
-                        <div class="stat-item"><span>Время:</span> <span>${tetris.formatTime(this.data.ghost.timePlayed)}</span></div>
+                        <div class="stat-item"><span>Рекорд линий:</span> <span>${this.data.ghost.maxLinesInGame}</span></div>
                     </div>`;
                 elements.statsModal.classList.add('visible');
             }
@@ -1013,20 +1026,18 @@
             }
         };
         
-        // FIX: Функция для масштабирования игрового контейнера
         function resizeGame() {
             const gameContainer = document.getElementById('game-container');
             if (!gameContainer || !gameContainer.offsetParent) return;
 
-            const baseWidth = 400;  // Базовая ширина контейнера
-            const baseHeight = 630; // Базовая высота контейнера
+            const baseWidth = 400;
+            const baseHeight = 730; // FIX: Увеличена базовая высота для нового макета
 
             const scaleX = window.innerWidth / baseWidth;
             const scaleY = window.innerHeight / baseHeight;
 
             let scale = Math.min(scaleX, scaleY);
             
-            // Не увеличиваем, если экран больше базового размера
             if (scale > 1) {
                 scale = 1;
             }
@@ -1071,7 +1082,6 @@
             elements.mainMenuBtn.addEventListener('click', toMainMenu);
             elements.mainMenuGameOverBtn.addEventListener('click', toMainMenu);
 
-            // FIX: Добавляем слушатель изменения размера окна и вызываем функцию
             window.addEventListener('resize', resizeGame);
             resizeGame();
         }
