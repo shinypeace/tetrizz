@@ -83,7 +83,6 @@
         }
 
         #game-container {
-            /* FIX: Изменена структура для центрирования кнопок */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -97,7 +96,6 @@
             transform-origin: center center;
         }
         
-        /* FIX: Новый контейнер для верхней части игры */
         #game-top-area {
             display: flex;
             gap: 15px;
@@ -117,7 +115,6 @@
             color: var(--text-accent);
             border-radius: 0;
             border: 2px solid var(--border-color);
-            /* FIX: Убран нижний отступ */
             margin-bottom: 0;
             transition: background-color 0.3s, border-color 0.3s;
             background-image: 
@@ -402,7 +399,6 @@
     </div>
 
     <div id="game-wrapper" class="hidden">
-        <!-- FIX: Изменена структура HTML для нового макета -->
         <div id="game-container">
             <div id="game-top-area">
                 <div id="info-panel">
@@ -459,7 +455,7 @@
 
         // --- VK Integration ---
         let isVK = false;
-        const STATS_VK_KEY = 'tetrisGameStats_v2'; // FIX: Новая версия статистики
+        const STATS_VK_KEY = 'tetrisGameStats_v2';
 
         async function initVK() {
             try {
@@ -491,7 +487,7 @@
             time: 0,
             speed: 700,
             gameMode: 'classic',
-            maxLinesClearedInTurn: 0, // FIX: Новая переменная для статистики
+            maxLinesClearedInTurn: 0,
             
             // --- Флаги состояния ---
             isActive: false,
@@ -540,7 +536,7 @@
                 this.board = []; this.sqs = []; this.curSqs = [];
                 this.tempShapes = null;
                 this.score = 0; this.level = 1; this.lines = 0; this.time = 0; this.speed = 700;
-                this.maxLinesClearedInTurn = 0; // FIX: Сброс статистики
+                this.maxLinesClearedInTurn = 0;
                 this.isActive = true; this.isPaused = false; this.isGameOver = false;
 
                 if (this.gameMode === 'speedrun') {
@@ -703,13 +699,28 @@
                     this.eventHandlers.mobile = [];
                 }
             },
+            // FIX: Добавлено управление WASD и предотвращение прокрутки
             handleKey: function (e) {
                 if (!this.isActive || this.isGameOver) return;
-                if (e.keyCode === 27 || e.keyCode === 80) { e.preventDefault(); this.togglePause(); return; }
+                if (e.keyCode === 27 || e.keyCode === 80) { 
+                    e.preventDefault(); 
+                    this.togglePause(); 
+                    return; 
+                }
                 if(this.isPaused) return;
+
                 switch (e.keyCode) {
-                    case 37: this.move("L"); break; case 38: this.move("RT"); break;
-                    case 39: this.move("R"); break; case 40: this.move("D"); break;
+                    // Arrow keys
+                    case 37: e.preventDefault(); this.move("L"); break;
+                    case 38: e.preventDefault(); this.move("RT"); break;
+                    case 39: e.preventDefault(); this.move("R"); break;
+                    case 40: e.preventDefault(); this.move("D"); break;
+
+                    // WASD keys
+                    case 65: e.preventDefault(); this.move("L"); break; // A
+                    case 87: e.preventDefault(); this.move("RT"); break; // W
+                    case 68: e.preventDefault(); this.move("R"); break; // D
+                    case 83: e.preventDefault(); this.move("D"); break; // S
                 }
             },
 
@@ -868,7 +879,6 @@
                 return this.board[y].every(cell => cell !== null);
             },
             animateAndRemoveRows: function(rows) {
-                // FIX: Обновление рекорда по линиям за ход
                 this.maxLinesClearedInTurn = Math.max(this.maxLinesClearedInTurn, rows.length);
 
                 rows.forEach(y => {
@@ -954,7 +964,6 @@
                     loadedData = localStorage.getItem(STATS_VK_KEY);
                 }
                 
-                // FIX: Новая структура статистики по умолчанию
                 const defaultStats = {
                     classic: { highScore: 0, maxLinesInGame: 0 },
                     speedrun: { bestTime: Infinity, gamesWon: 0 },
@@ -969,7 +978,6 @@
                     }
                 }
             },
-            // FIX: Обновлена функция сохранения
             async save(mode, score, lines, time, maxLinesCleared) {
                 if (!this.data[mode]) return;
                 
@@ -989,7 +997,6 @@
                     } catch (e) { console.error('VK Storage save failed:', e); }
                 }
             },
-            // FIX: Обновлена функция отображения
             display: function() {
                 const grid = document.getElementById('stats-grid');
                 grid.innerHTML = `
@@ -1031,7 +1038,7 @@
             if (!gameContainer || !gameContainer.offsetParent) return;
 
             const baseWidth = 400;
-            const baseHeight = 730; // FIX: Увеличена базовая высота для нового макета
+            const baseHeight = 730;
 
             const scaleX = window.innerWidth / baseWidth;
             const scaleY = window.innerHeight / baseHeight;
